@@ -151,7 +151,8 @@ function honeyShell(x: number, y: number, z: number, soft: number) {
   const r = Math.sqrt(x * x + z * z);
   const th = Math.atan2(x, z);
   const s = r + Math.max(0, TOP - y);
-  const edge = 1.3 + 0.08 * Math.cos(2 * th + 0.7) + 0.06 * Math.cos(3 * th + 2.1) + 0.035 * Math.cos(7 * th + 0.3);
+  const edge = 1.3 + 0.08 * Math.cos(2 * th + 0.7) + 0.06 * Math.cos(3 * th + 2.1) + 0.035 * Math.cos(7 * th + 0.3) +
+    0.045 * Math.cos(11 * th + 1.7);
   let mask = s - edge, bulb = 0;
   if (s > 0.85) {
     for (let k = 0; k < DRIPS.length; k++) {
@@ -266,7 +267,8 @@ function map(x: number, y: number, z: number) {
     if (pr < 1.2) {
       const co = qz / pr, si = qx / pr;
       const lobes = 0.45 + 0.07 * (co * co - si * si) + 0.06 * (2 * si * co) + 0.045 * (4 * co * co * co - 3 * co);
-      const fx = pr - lobes, fy = Math.abs(y - PLATE_Y - 0.012) - 0.018;
+      const qr = clamp(pr / lobes, 0, 1);
+      const fx = pr - lobes, fy = Math.abs(y - PLATE_Y - 0.012 - 0.034 * (1 - qr * qr)) - 0.018;
       const mxp = fx > 0 ? fx : 0, myp = fy > 0 ? fy : 0;
       const pool = Math.min(Math.max(fx, fy), 0) + Math.sqrt(mxp * mxp + myp * myp) - 0.026;
       hd = smin(hd, pool, 0.09);
@@ -299,7 +301,7 @@ function norm3(x: number, y: number, z: number): [number, number, number] {
   return [x / l, y / l, z / l];
 }
 
-let eR = 0, eG = 0, eB = 0;
+let eR = 0, eG = 0, eB = 0, paneGain = 1;
 // A warm studio: gradient room, large softbox and a strip light.
 function env(dx: number, dy: number, dz: number, px: number, py: number, pz: number) {
   const up = clamp(dy * 0.5 + 0.5, 0, 1);
@@ -323,9 +325,14 @@ function env(dx: number, dy: number, dz: number, px: number, py: number, pz: num
     const t = (-9 - pz) / dz;
     const wx = px + dx * t, wy = py + dy * t;
     const win = ss(-4.6, -2.8, wx) * ss(3.8, 1.6, wx) * ss(1.0, 3.2, wy) * ss(6.8, 5.0, wy);
-    eR += win * 2.3;
-    eG += win * 1.85;
-    eB += win * 1.25;
+    eR += win * 1.05;
+    eG += win * 0.74;
+    eB += win * 0.3;
+    // A narrow pane inside it: the bright streak that says "wet".
+    const pane = ss(-2.5, -2.1, wx) * ss(-0.5, -0.9, wx) * ss(3.0, 3.5, wy) * ss(6.6, 6.1, wy);
+    eR += pane * 5.2 * paneGain;
+    eG += pane * 4.4 * paneGain;
+    eB += pane * 3.1 * paneGain;
   }
 }
 
@@ -477,11 +484,11 @@ function shade(x: number, y: number, z: number, dx: number, dy: number, dz: numb
     const e = r / PR[i];
     const v = (y - CY[i] + 0.055 * e * e) / PH;
     // Griddled brown faces with the pale, fluffy crumb showing at the waist.
-    const face = ss(0.14, 0.66, Math.abs(v) + 0.1 * (fbm(x * 3.1, y * 3.1 + i, z * 3.1, 2) - 0.5));
+    const face = ss(0.05, 0.56, Math.abs(v) + 0.16 * (fbm(x * 3.1, y * 3.1 + i, z * 3.1, 2) - 0.5));
     const n1 = fbm(x * 1.6 + i * 3.17, y * 1.6 + i, z * 1.6, 4);
     const n2 = fbm(x * 6.5, y * 6.5 + i, z * 6.5, 3);
     const lace = ss(0.36, 0.68, n1 * 0.7 + n2 * 0.3);
-    const cr = mix(0.4, 0.78, lace), cg = mix(0.14, 0.37, lace), cb = mix(0.025, 0.08, lace);
+    const cr = mix(0.27, 0.64, lace), cg = mix(0.082, 0.25, lace), cb = mix(0.012, 0.045, lace);
     // Rotated lookups hide the axis-aligned lattice of the value noise.
     const ux = 0.8 * x + 0.6 * z, uz = -0.6 * x + 0.8 * z;
     const crumb = fbm(ux * 10 + y * 3, y * 15 - ux * 2, uz * 10, 4);
@@ -519,9 +526,9 @@ function shade(x: number, y: number, z: number, dx: number, dy: number, dz: numb
     lr += scat * 0.72;
     lg += scat * 0.3;
     lb += scat * 0.08;
-    cR = ar * lr * 0.56;
-    cG = ag * lg * 0.56;
-    cB = ab * lb * 0.56;
+    cR = ar * lr * 0.5;
+    cG = ag * lg * 0.5;
+    cB = ab * lb * 0.5;
     const hx0 = KEY[0] + vx, hy0 = KEY[1] + vy, hz0 = KEY[2] + vz;
     const hl = Math.sqrt(hx0 * hx0 + hy0 * hy0 + hz0 * hz0);
     const nh = clamp((bx * hx0 + by * hy0 + bz * hz0) / hl, 0, 1);
@@ -548,6 +555,7 @@ function shade(x: number, y: number, z: number, dx: number, dy: number, dz: numb
   // Reflection used by every glossy material.
   const rd = dx * nx + dy * ny + dz * nz;
   const rx = dx - 2 * rd * nx, ry = dy - 2 * rd * ny, rz = dz - 2 * rd * nz;
+  paneGain = mat === 2 ? 1 : 0;
   env(rx, ry, rz, x, y, z);
   const hx = KEY[0] + vx, hy = KEY[1] + vy, hz = KEY[2] + vz;
   const hl = Math.sqrt(hx * hx + hy * hy + hz * hz);
@@ -556,14 +564,15 @@ function shade(x: number, y: number, z: number, dx: number, dy: number, dz: numb
   if (mat === 2) {
     stack(x, y, z);
     const onPlate = y < 0.17;
-    const thick = onPlate ? 0.04 : clamp(gSoft, 0.012, 0.16);
+    const poolQ = clamp(Math.hypot(x - POOL_X, z - POOL_Z) / 0.5, 0, 1);
+    const thick = onPlate ? mix(0.1, 0.022, poolQ * poolQ) : clamp(gSoft * 1.25, 0.016, 0.16);
     const isStream = y > TOP + 0.09;
     const path = isStream ? 0.2 : (thick * 2.8) / Math.max(nv, 0.42);
-    const tR = Math.exp(-0.7 * path), tG = Math.exp(-4.7 * path), tB = Math.exp(-21 * path);
+    const tR = Math.exp(-0.6 * path), tG = Math.exp(-3.1 * path), tB = Math.exp(-21 * path);
     const lit = clamp((ndl + 0.5) / 1.5, 0, 1) * mix(0.3, 1, sKey);
     const under = 0.36 + 1.02 * lit;
     let hr = 0.96 * tR * under + 0.045;
-    let hg = 0.44 * tG * under + 0.01;
+    let hg = 0.47 * tG * under + 0.012;
     let hb = 0.04 * tB * under + 0.001;
     // Inner glow where light passes through thin honey.
     const glow = Math.exp(-path * 7) * (0.3 + 0.7 * lit);
@@ -621,9 +630,9 @@ function shade(x: number, y: number, z: number, dx: number, dy: number, dz: numb
   const amb = (0.28 + 0.2 * ny) * occ;
   const r2 = Math.sqrt(x * x + z * z);
   const warm = Math.exp(-Math.max(r2 - 1.65, 0) * 2.2) * 0.3 * occ;
-  cR = pa * (0.016 * (2.3 * lit + amb * 1.1) + warm * 0.24);
-  cG = pa * (0.034 * (2.2 * lit + amb * 1.1) + warm * 0.1);
-  cB = pa * (0.056 * (2.0 * lit + amb * 1.1) + warm * 0.025);
+  cR = pa * (0.011 * (2.3 * lit + amb * 1.1) + warm * 0.24);
+  cG = pa * (0.023 * (2.2 * lit + amb * 1.1) + warm * 0.1);
+  cB = pa * (0.039 * (2.0 * lit + amb * 1.1) + warm * 0.025);
   const F = 0.03 + 0.34 * fres;
   const mirror = mix(0.3, 1, occ) * 0.55;
   cR = cR * (1 - F) + eR * F * mirror;
@@ -719,6 +728,32 @@ for (let j = 0; j < H; j++) {
   }
 }
 
+// Faint steam rising off the warm stack, only over the dark backdrop.
+const WISPS = [[-0.34, 0.48, 1.7], [0.04, 0.6, 4.1], [0.33, 0.5, 2.6]];
+for (let j = 0; j < H; j++) {
+  const sy = 1 - ((j + 0.5) / H) * 2;
+  if (sy < 0.42) break;
+  for (let i = 0; i < W; i++) {
+    const p = j * W + i;
+    if (ids[p] !== 0) continue;
+    const sx = ((i + 0.5) / W) * 2 - 1;
+    let a = 0;
+    for (const w of WISPS) {
+      const h = sy - w[1];
+      if (h < 0) continue;
+      const c = w[0] + 0.07 * Math.sin(h * 6 + w[2]) + 0.035 * Math.sin(h * 13 + w[2] * 2);
+      const e = (sx - c) / (0.035 + 0.12 * h);
+      a += Math.exp(-e * e) * ss(0, 0.12, h) * ss(0.62, 0.08, h);
+    }
+    if (a > 0.003) {
+      const v = a * ss(0.3, 0.72, fbm(sx * 5, sy * 3.2, 1.7, 3)) * 0.07;
+      hdr[p * 3] += v;
+      hdr[p * 3 + 1] += v * 0.86;
+      hdr[p * 3 + 2] += v * 0.7;
+    }
+  }
+}
+
 // Bloom: a soft glow on the brightest honey highlights.
 const BW = W >> 2, BH = H >> 2;
 let bloom = new Float32Array(BW * BH * 3);
@@ -769,10 +804,13 @@ for (let j = 0; j < H; j++) {
     const u = clamp(fx - x0, 0, 1), v = clamp(fy - y0, 0, 1);
     const vx = i / W - 0.5, vy = j / H - 0.5;
     const vig = 1 - 0.62 * ss(0.3, 0.82, Math.sqrt(vx * vx + vy * vy));
+    const luma = hdr[o] * 0.2126 + hdr[o + 1] * 0.7152 + hdr[o + 2] * 0.0722;
     for (let c = 0; c < 3; c++) {
       const a = mix(bloom[(y0 * BW + x0) * 3 + c], bloom[(y0 * BW + x1) * 3 + c], u);
       const b = mix(bloom[(y1 * BW + x0) * 3 + c], bloom[(y1 * BW + x1) * 3 + c], u);
-      const val = (hdr[o + c] + mix(a, b, v) * 0.5) * vig * 0.92;
+      // A small saturation lift keeps the golds rich through the tone curve.
+      const graded = Math.max(0, mix(luma, hdr[o + c], 1.06));
+      const val = (graded + mix(a, b, v) * 0.5) * vig * 0.92;
       rgb[o + c] = Math.round(clamp(srgb(aces(val)), 0, 1) * 255);
     }
   }
