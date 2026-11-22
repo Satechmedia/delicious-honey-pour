@@ -204,11 +204,11 @@ function butterD(x: number, y: number, z: number) {
   const bx = x - BUTTER_X, bz = z - BUTTER_Z;
   const lx = BC * bx - BS * bz, lz = BS * bx + BC * bz;
   const ly = y - BUTTER_Y + 0.035 * lx + 0.02 * lz;
-  const taper = 0.05 * clamp((ly + 0.075) / 0.15, 0, 1);
+  const taper = 0.08 * clamp((ly + 0.075) / 0.15, 0, 1);
   const wob = 0.016 * Math.sin(lx * 7 + 1) + 0.013 * Math.sin(lz * 9 + 2);
-  const qbx = Math.abs(lx) - (0.39 - taper + wob), qby = Math.abs(ly) - 0.07, qbz = Math.abs(lz) - (0.35 - taper - wob);
+  const qbx = Math.abs(lx) - (0.37 - taper + wob), qby = Math.abs(ly) - 0.055, qbz = Math.abs(lz) - (0.33 - taper - wob);
   const mbx = qbx > 0 ? qbx : 0, mby = qby > 0 ? qby : 0, mbz = qbz > 0 ? qbz : 0;
-  const box = Math.sqrt(mbx * mbx + mby * mby + mbz * mbz) + Math.min(Math.max(qbx, qby, qbz), 0) - 0.075;
+  const box = Math.sqrt(mbx * mbx + mby * mby + mbz * mbz) + Math.min(Math.max(qbx, qby, qbz), 0) - 0.095;
   const edge = 0.03 * Math.sin(lx * 5.3 + 0.6) + 0.026 * Math.sin(lz * 6.1 + 2.2);
   const qsx = Math.abs(lx) - (0.43 + edge), qsy = Math.abs(y - TOP - 0.055) - 0.004, qsz = Math.abs(lz) - (0.39 - edge);
   const msx = qsx > 0 ? qsx : 0, msy = qsy > 0 ? qsy : 0, msz = qsz > 0 ? qsz : 0;
@@ -485,14 +485,16 @@ function shade(x: number, y: number, z: number, dx: number, dy: number, dz: numb
     const v = (y - CY[i] + 0.055 * e * e) / PH;
     // Griddled brown faces with the pale, fluffy crumb showing at the waist.
     const face = ss(0.05, 0.56, Math.abs(v) + 0.16 * (fbm(x * 3.1, y * 3.1 + i, z * 3.1, 2) - 0.5));
-    const n1 = fbm(x * 1.6 + i * 3.17, y * 1.6 + i, z * 1.6, 4);
-    const n2 = fbm(x * 6.5, y * 6.5 + i, z * 6.5, 3);
-    const lace = ss(0.36, 0.68, n1 * 0.7 + n2 * 0.3);
+    const n1 = fbm(x * 2.7 + i * 3.17, y * 2.7 + i, z * 2.7, 4);
+    const n2 = fbm(x * 9.5, y * 9.5 + i, z * 9.5, 3);
+    const lace = ss(0.36, 0.66, n1 * 0.52 + n2 * 0.48);
     const cr = mix(0.27, 0.64, lace), cg = mix(0.082, 0.25, lace), cb = mix(0.012, 0.045, lace);
     // Rotated lookups hide the axis-aligned lattice of the value noise.
     const ux = 0.8 * x + 0.6 * z, uz = -0.6 * x + 0.8 * z;
     const crumb = fbm(ux * 10 + y * 3, y * 15 - ux * 2, uz * 10, 4);
-    const bubble = ss(1.0, 0.62, pores(ux * 21, y * 15, uz * 21)) * (1 - face);
+    // Pores gather in clusters, as they do in a real griddle batter.
+    const cluster = ss(0.36, 0.6, fbm(ux * 4.2 + 9, y * 6.5, uz * 4.2, 2));
+    const bubble = ss(1.0, 0.62, pores(ux * 21, y * 15, uz * 21)) * (1 - face) * cluster;
     const k = ss(0.34, 0.66, crumb);
     let ar = mix(0.92, 1.0, k) * (1 - bubble * 0.22);
     let ag = mix(0.56, 0.7, k) * (1 - bubble * 0.36);
